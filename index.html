@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>リアルタイム文章シャッフル</title>
+  <title>11人メッセージシャッフル</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -72,141 +72,11 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // ⚠️ ご自身の Firebase プロジェクト設定情報に置き換えてください
+    // Firebase 設定情報
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-      projectId: "YOUR_PROJECT",
-      storageBucket: "YOUR_PROJECT.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    const TOTAL_PLAYERS = 11;
-    let myPlayerIndex = null;
-    let roomRef = null;
-
-    // 1. ルーム参加機能
-    window.joinRoom = async function() {
-      const roomId = document.getElementById("room-id").value.trim();
-      const name = document.getElementById("player-name").value.trim();
-      if (!roomId || !name) return alert("ルームIDと名前を入力してください");
-
-      roomRef = ref(db, `rooms/${roomId}`);
-      
-      // 登録済みの参加者数を取得
-      const snapshot = await get(ref(db, `rooms/${roomId}/players`));
-      const players = snapshot.val() || [];
-      
-      if (players.length >= TOTAL_PLAYERS) {
-        alert("このルームはすでに満員（11人）です");
-        return;
-      }
-
-      myPlayerIndex = players.length;
-      await set(ref(db, `rooms/${roomId}/players/${myPlayerIndex}`), { name });
-
-      document.getElementById("login-section").classList.add("hidden");
-      document.getElementById("game-section").classList.remove("hidden");
-
-      listenToRoomUpdates(roomId);
-    };
-
-    // 2. メッセージ送信機能
-    window.submitText = async function() {
-      const text = document.getElementById("msg-input").value.trim();
-      if (!text) return alert("文章を入力してください");
-
-      const roomId = document.getElementById("room-id").value.trim();
-      await set(ref(db, `rooms/${roomId}/messages/${myPlayerIndex}`), text);
-
-      document.getElementById("msg-input").disabled = true;
-      const btn = document.getElementById("submit-btn");
-      btn.disabled = true;
-      btn.innerText = "投稿完了（全員の集まりを待っています...）";
-    };
-
-    // 3. リアルタイム状態監視
-    function listenToRoomUpdates(roomId) {
-      onValue(roomRef, (snapshot) => {
-        const data = snapshot.val() || {};
-        const players = data.players || [];
-        const messages = data.messages || {};
-
-        const msgCount = Object.keys(messages).length;
-
-        document.getElementById("status").innerText = 
-          `参加者: ${players.length}/${TOTAL_PLAYERS}名 | 投稿完了: ${msgCount}/${TOTAL_PLAYERS}名`;
-
-        // 全員の文章が投稿された場合
-        if (msgCount === TOTAL_PLAYERS) {
-          // 最初のプレイヤーが代表してシャッフルデータを生成・保存
-          if (myPlayerIndex === 0 && !data.assignments) {
-            const assignments = generateDerangement(TOTAL_PLAYERS);
-            set(ref(db, `rooms/${roomId}/assignments`), assignments);
-          }
-
-          // シャッフルデータが書き込まれたら結果を表示
-          if (data.assignments) {
-            const assignedMsgIndex = data.assignments[myPlayerIndex];
-            const targetMessage = messages[assignedMsgIndex];
-            
-            document.getElementById("input-card").classList.add("hidden");
-            document.getElementById("result-card").classList.remove("hidden");
-            document.getElementById("result-text").innerText = `「 ${targetMessage} 」`;
-          }
-        }
-      });
-    }
-
-    // 4. 自分以外が当たるシャッフルアルゴリズム（完全攪乱）
-    function generateDerangement(n) {
-      let array = Array.from({ length: n }, (_, i) => i);
-      let isDerangement = false;
-      while (!isDerangement) {
-        for (let i = array.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [array[i], array[j]] = [array[j], array[i]];
-        }
-        isDerangement = array.every((val, index) => val !== index);
-      }
-      return array;
-    }
-  </script>
-</head>
-<body>
-
-  <h1>11人メッセージシャッフル</h1>
-
-  <!-- ログイン画面 -->
-  <div id="login-section" class="card">
-    <h2>ルームに参加</h2>
-    <input type="text" id="room-id" placeholder="ルームID（例: party11）">
-    <input type="text" id="player-name" placeholder="あなたの名前">
-    <button onclick="joinRoom()">参加する</button>
-  </div>
-
-  <!-- メインゲーム画面 -->
-  <div id="game-section" class="card hidden">
-    <div id="status" class="status">通信中...</div>
-
-    <div id="input-card">
-      <h2>文章の入力</h2>
-      <input type="text" id="msg-input" placeholder="匿名で送信したい文を入力">
-      <button id="submit-btn" onclick="submitText()">投稿する</button>
-    </div>
-
-    <!-- 結果画面 -->
-    <div id="result-card" class="hidden">
-      <h2>全員の投稿が揃いました！</h2>
-      <p>あなたに届いた誰かの文章：</p>
-      <div id="result-text" class="result"></div>
-    </div>
-  </div>
-
-</body>
-</html>
+      apiKey: "AIzaSyB4QqHKXj3ApSVr3fvi2vbCdqdJ68EVG9o",
+      authDomain: "random-9a1e5.firebaseapp.com",
+      databaseURL: "https://random-9a1e5-default-rtdb.firebaseio.com",
+      projectId: "random-9a1e5",
+      storageBucket: "random-9a1e5.firebasestorage.app",
+      messagingSenderId: "936888
