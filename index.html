@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>11人メッセージシャッフル</title>
+  <title>リアルタイム文章シャッフル</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -24,10 +24,11 @@
     }
     h1 { font-size: 22px; margin-bottom: 20px; color: #111; }
     h2 { font-size: 18px; margin-top: 0; color: #444; }
-    input[type="text"] {
+    label { display: block; text-align: left; font-size: 14px; font-weight: bold; margin-top: 10px; color: #555; }
+    input[type="text"], input[type="number"] {
       width: 100%;
       padding: 12px;
-      margin: 8px 0 16px 0;
+      margin: 6px 0 16px 0;
       font-size: 16px;
       border: 1px solid #ccc;
       border-radius: 6px;
@@ -46,6 +47,21 @@
     }
     button:hover { background-color: #0056b3; }
     button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+    .btn-secondary {
+      background-color: #6c757d;
+      margin-top: 8px;
+    }
+    .btn-secondary:hover { background-color: #5a6268; }
+    .room-code-box {
+      background: #eef2f5;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 15px 0;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      color: #007bff;
+    }
     .status {
       margin: 15px 0;
       padding: 10px;
@@ -54,29 +70,176 @@
       font-size: 14px;
       font-weight: bold;
     }
+    .member-list {
+      text-align: left;
+      background: #fafafa;
+      border: 1px solid #eee;
+      padding: 10px 15px;
+      border-radius: 6px;
+      font-size: 14px;
+      max-height: 150px;
+      overflow-y: auto;
+      margin-bottom: 15px;
+    }
+    .member-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+    }
+    .badge {
+      font-size: 12px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #ddd;
+    }
+    .badge-done { background: #28a745; color: white; }
     .result {
       font-size: 20px;
       color: #28a745;
       margin-top: 20px;
-      padding: 15px;
+      padding: 18px;
       background: #e8f5e9;
       border-radius: 8px;
       word-break: break-all;
       font-weight: bold;
+      line-height: 1.5;
     }
     .hidden { display: none; }
+    .tab-container {
+      display: flex;
+      margin-bottom: 15px;
+    }
+    .tab {
+      flex: 1;
+      padding: 10px;
+      background: #e9ecef;
+      cursor: pointer;
+      font-weight: bold;
+      border-radius: 6px 6px 0 0;
+    }
+    .tab.active {
+      background: white;
+      color: #007bff;
+      border-bottom: 2px solid #007bff;
+    }
   </style>
 
-  <!-- Firebase SDK (ES Module) -->
+  <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // Firebase 設定情報
     const firebaseConfig = {
       apiKey: "AIzaSyB4QqHKXj3ApSVr3fvi2vbCdqdJ68EVG9o",
       authDomain: "random-9a1e5.firebaseapp.com",
       databaseURL: "https://random-9a1e5-default-rtdb.firebaseio.com",
       projectId: "random-9a1e5",
       storageBucket: "random-9a1e5.firebasestorage.app",
-      messagingSenderId: "936888
+      messagingSenderId: "9368889172",
+      appId: "1:9368889172:web:1bcb3c4797b08f08528ac1",
+      measurementId: "G-SK65ZWG0CQ"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let myPlayerIndex = null;
+    let roomRef = null;
+    let totalPlayers = 0;
+    let currentRoomId = "";
+
+    // タブ切り替え
+    window.switchTab = function(tabName) {
+      if (tabName === 'create') {
+        document.getElementById('tab-create').classList.add('active');
+        document.getElementById('tab-join').classList.remove('active');
+        document.getElementById('form-create').classList.remove('hidden');
+        document.getElementById('form-join').classList.add('hidden');
+      } else {
+        document.getElementById('tab-join').classList.add('active');
+        document.getElementById('tab-create').classList.remove('active');
+        document.getElementById('form-join').classList.remove('hidden');
+        document.getElementById('form-create').classList.add('hidden');
+      }
+    };
+
+    // ランダムなルームコード生成 (4桁の数字・文字)
+    function generateRoomCode() {
+      return Math.random().toString(36).substring(2, 6).toUpperCase();
+    }
+
+    // 1. 部屋を作る（ホスト）
+    window.createRoom = async function() {
+      const name = document.getElementById("host-name").value.trim();
+      const count = parseInt(document.getElementById("player-count").value);
+
+      if (!name) return alert("あなたの名前を入力してください");
+      if (!count || count < 2) return alert("参加人数は2人以上で設定してください");
+
+      const roomId = generateRoomCode();
+      currentRoomId = roomId;
+      totalPlayers = count;
+
+      roomRef = ref(db, `rooms/${roomId}`);
+
+      // ルームの初期データを設定
+      await set(roomRef, {
+        maxPlayers: count,
+        players: [{ name: name }]
+      });
+
+      myPlayerIndex = 0;
+      enterRoomUI(roomId);
+    };
+
+    // 2. 部屋に入る（参加者）
+    window.joinRoom = async function() {
+      const roomId = document.getElementById("join-room-id").value.trim().toUpperCase();
+      const name = document.getElementById("join-name").value.trim();
+
+      if (!roomId || !name) return alert("ルームコードと名前を入力してください");
+
+      roomRef = ref(db, `rooms/${roomId}`);
+      const snapshot = await get(roomRef);
+
+      if (!snapshot.exists()) {
+        alert("指定されたルームが存在しません。コードを確認してください。");
+        return;
+      }
+
+      const roomData = snapshot.val();
+      const players = roomData.players || [];
+      totalPlayers = roomData.maxPlayers;
+
+      if (players.length >= totalPlayers) {
+        alert(`このルームは満員です（定員: ${totalPlayers}人）`);
+        return;
+      }
+
+      myPlayerIndex = players.length;
+      currentRoomId = roomId;
+
+      // 自分を参加者リストに追加
+      await set(ref(db, `rooms/${roomId}/players/${myPlayerIndex}`), { name: name });
+
+      enterRoomUI(roomId);
+    };
+
+    // 部屋に入った後のUI切り替えと監視開始
+    function enterRoomUI(roomId) {
+      document.getElementById("login-section").classList.add("hidden");
+      document.getElementById("game-section").classList.remove("hidden");
+      document.getElementById("display-room-id").innerText = roomId;
+
+      listenToRoomUpdates(roomId);
+    }
+
+    // クリップボードにコードをコピー
+    window.copyRoomCode = function() {
+      navigator.clipboard.writeText(currentRoomId);
+      alert("ルームコードをコピーしました！参加者に共有してください。");
+    };
+
+    // 3. メッセージ送信機能
+    window.submitText = async function() {
+      const text =
